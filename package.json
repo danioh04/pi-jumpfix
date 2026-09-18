@@ -11,6 +11,10 @@
   ],
   "license": "MIT",
   "author": "Daniel Oh",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danioh04/pi-jumpfix.git"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.19.0"
