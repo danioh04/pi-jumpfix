@@ -1,0 +1,32 @@
+{
+  "name": "pi-jumpfix",
+  "version": "0.1.0",
+  "description": "A lightweight Pi extension to prevent the TUI from jumping to the top of the conversation and wiping your scrollback while the model streams.",
+  "keywords": [
+    "pi",
+    "pi-package",
+    "scrollback",
+    "tui",
+    "terminal"
+  ],
+  "license": "MIT",
+  "author": "Daniel Oh",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  }
+}
