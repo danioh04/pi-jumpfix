@@ -2,7 +2,6 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import * as piTui from "@earendil-works/pi-tui";
 
 const FULL_RENDER_CLEAR = "\x1b[2J\x1b[H\x1b[3J";
-const SCREEN_CLEAR = "\x1b[2J\x1b[H";
 const CLEAR_SCROLLBACK = "\x1b[3J";
 const SYNC_END = "\x1b[?2026l";
 const KITTY_IMAGE = "\x1b_G";
@@ -40,7 +39,11 @@ function assemble(
   const start = tailStart(content, rows);
   const tail =
     start > 0 ? content.slice(start).replaceAll(CLEAR_SCROLLBACK, "") : content;
-  return prefix + SCREEN_CLEAR + tail + suffix;
+  const body = tail
+    .split("\r\n")
+    .map((line) => `\x1b[2K${line}`)
+    .join("\r\n");
+  return `${prefix}\x1b[H${body}\x1b[J${suffix}`;
 }
 
 function installPatch(TuiClass: unknown): void {
@@ -55,9 +58,9 @@ function installPatch(TuiClass: unknown): void {
   prototype["doRender"] = function patchedDoRender(
     this: { terminal?: unknown },
     ...args: unknown[]
-  ): unknown {
+  ): void {
     ensureTerminalFilter(this.terminal);
-    return original.apply(this, args);
+    original.apply(this, args);
   };
 }
 
@@ -75,10 +78,7 @@ function ensureTerminalFilter(terminal: unknown): void {
   let lastRows = term.rows as number;
   let pending: { prefix: string; content: string; stock: boolean } | null =
     null;
-  term.write = function filteredWrite(
-    this: unknown,
-    ...args: unknown[]
-  ): unknown {
+  term.write = function filteredWrite(this: unknown, ...args: unknown[]): void {
     const [buffer, ...rest] = args;
     const data = buffer as string;
     const rows = term.rows as number;
@@ -100,10 +100,14 @@ function ensureTerminalFilter(terminal: unknown): void {
         pending.stock,
       );
       pending = null;
-      return originalWrite.apply(this, [output, ...rest]);
+      originalWrite.apply(this, [output, ...rest]);
+      return;
     }
     const clearIndex = data.indexOf(FULL_RENDER_CLEAR);
-    if (clearIndex === -1) return originalWrite.apply(this, args);
+    if (clearIndex === -1) {
+      originalWrite.apply(this, args);
+      return;
+    }
     let stock = resized;
     if (registry[STOCK_KEY] === true) {
       stock = true;
@@ -126,13 +130,13 @@ function ensureTerminalFilter(terminal: unknown): void {
       rows,
       stock,
     );
-    return originalWrite.apply(this, [output, ...rest]);
+    originalWrite.apply(this, [output, ...rest]);
   };
 }
 
 export default function jumpfix(pi: ExtensionAPI): void {
   installPatch(piTui.TuiMainScreen);
-  pi.on("session_start", async (event, ctx) => {
+  pi.on("session_start", (event) => {
     if (
       event.reason === "new" ||
       event.reason === "resume" ||
@@ -140,7 +144,5 @@ export default function jumpfix(pi: ExtensionAPI): void {
     ) {
       registry[STOCK_KEY] = true;
     }
-    if (event.reason !== "startup" || ctx.mode !== "tui") return;
-    ctx.ui.notify("pi-jumpfix: active", "info");
   });
 }
